@@ -1,7 +1,5 @@
 import { NextRequest } from "next/server";
-import { db } from "@/lib/db";
-import { planning, versions, cartridges } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { neon } from "@neondatabase/serverless";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,30 +7,29 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Number(searchParams.get("limit") || "45"), 100);
     const plateforme = searchParams.get("plateforme");
 
-    let query = db
-      .select({
-        id: planning.id,
-        date: planning.date,
-        plateforme: planning.plateforme,
-        status: planning.status,
-        version_id: planning.version_id,
-        version_content: versions.content_text,
-        version_status: versions.status,
-        cartridge_title: cartridges.title,
-        cartridge_source: cartridges.source,
-      })
-      .from(planning)
-      .leftJoin(versions, eq(planning.version_id, versions.id))
-      .leftJoin(cartridges, eq(versions.cartridge_id, cartridges.id))
-      .orderBy(planning.date)
-      .limit(limit);
+    const sql = neon(process.env.DATABASE_URL!);
+
+    let query = `
+      SELECT p.id, p.date, p.plateforme, p.status, p.version_id,
+             v.content_text as version_content, v.status as version_status,
+             c.title as cartridge_title, c.source as cartridge_source
+      FROM planning p
+      LEFT JOIN versions v ON v.id = p.version_id
+      LEFT JOIN cartridges c ON c.id = v.cartridge_id
+    `;
+
+    const params: any[] = [];
 
     if (plateforme) {
-      query = query.where(eq(planning.plateforme, plateforme as any));
+      params.push(plateforme);
+      query += ` WHERE p.plateforme = $${params.length}`;
     }
 
-    const result = await query;
-    return Response.json({ planning: result });
+    query += ` ORDER BY p.date ASC LIMIT $${params.length + 1}`;
+    params.push(limit);
+
+    const result = await sql.query(query, params);
+    return Response.json({ planning: result.rows });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
@@ -48,15 +45,13 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "version_id, date et plateforme requis" }, { status: 400 });
     }
 
-    const [entry] = await db.insert(planning).values({
-      version_id,
-      date,
-      time_slot: time_slot || null,
-      plateforme,
-      status: "planned",
-    }).returning();
+    const sql = neon(process.env.DATABASE_URL!);
+    const result = await sql.query(
+      `INSERT INTO planning (version_id, date, time_slot, plateforme, status) VALUES ($1, $2, $3, $4, 'planned') RETURNING *`,
+      [version_id, date, time_slot || null, plateforme]
+    );
 
-    return Response.json({ planning: entry }, { status: 201 });
+    return Response.json({ planning: result.rows[0] }, { status: 201 });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
