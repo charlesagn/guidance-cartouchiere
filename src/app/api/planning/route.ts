@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     params.push(limit);
 
     const result = await sql.query(query, params);
-    return Response.json({ planning: result.rows });
+    return Response.json({ planning: result });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       [version_id, date, time_slot || null, plateforme]
     );
 
-    return Response.json({ planning: result.rows[0] }, { status: 201 });
+    return Response.json({ planning: result[0] }, { status: 201 });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
