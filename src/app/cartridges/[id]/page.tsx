@@ -5,13 +5,26 @@ import { db } from "@/lib/db";
 import { cartridges, versions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
+const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+
+async function updateStatus(formData: FormData) {
+  "use server";
+  const versionId = formData.get("versionId") as string;
+  const status = formData.get("status") as string;
+  if (!versionId || !status) return;
+  await fetch(`${API_BASE}/api/versions/${versionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+}
+
 export default async function CartridgeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  
+
   const [cartridge] = await db
     .select()
     .from(cartridges)
@@ -26,19 +39,8 @@ export default async function CartridgeDetailPage({ params }: { params: Promise<
     .where(eq(versions.cartridge_id, id))
     .orderBy(versions.plateforme);
 
-  const updateStatus = async (versionId: string, status: string) => {
-    "use server";
-    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/versions/${versionId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    redirect(`/cartridges/${id}`);
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -57,16 +59,55 @@ export default async function CartridgeDetailPage({ params }: { params: Promise<
         </div>
       </header>
 
-      {/* Content */}
       <main className="flex-1 max-w-4xl mx-auto px-4 py-6 w-full space-y-4">
-        {cartridgeVersions.map(v => (
-          <VersionCard
-            key={v.id}
-            version={v}
-            updateStatus={updateStatus}
-            cartridgeId={id}
-          />
-        ))}
+        {cartridgeVersions.map(v => {
+          const meta = PLATFORMS.find(p => p.id === v.plateforme) || { icon: "📱", label: v.plateforme, bg: "bg-slate-50" };
+          return (
+            <div key={v.id} className="bg-white rounded-xl border shadow-sm">
+              {/* Platform header */}
+              <div className={`px-4 py-2.5 flex items-center justify-between border-b ${meta.bg}`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{meta.icon}</span>
+                  <span className="font-semibold text-sm">{meta.label}</span>
+                  <Badge variant="outline" className="text-xs">{v.format} · {v.ton}</Badge>
+                  <Badge variant="outline" className="text-xs">{v.status}</Badge>
+                </div>
+                <span className="text-xs text-slate-400">
+                  {v.content_text ? `${v.content_text.length} chars` : "⚠️ Sans contenu"}
+                </span>
+              </div>
+
+              {/* Content */}
+              <div className="p-4">
+                {v.content_text ? (
+                  <div className="whitespace-pre-wrap text-sm text-slate-700 leading-relaxed">
+                    {v.content_text}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-400 text-sm italic">
+                    En attente de génération par Hermes…
+                  </div>
+                )}
+
+                {/* Action buttons — 3 FORMS, one per action */}
+                <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-2">
+                  <form action={updateStatus} className="inline-block">
+                    <input type="hidden" name="versionId" value={v.id} />
+                    <Button type="submit" name="status" value="review" size="sm" variant="outline">🔄 Review</Button>
+                  </form>
+                  <form action={updateStatus} className="inline-block">
+                    <input type="hidden" name="versionId" value={v.id} />
+                    <Button type="submit" name="status" value="approved" size="sm">✅ Approuver</Button>
+                  </form>
+                  <form action={updateStatus} className="inline-block">
+                    <input type="hidden" name="versionId" value={v.id} />
+                    <Button type="submit" name="status" value="published" size="sm">📤 Publier</Button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          );
+        })}
 
         {cartridgeVersions.length === 0 && (
           <div className="text-center py-20 text-slate-400">
@@ -74,70 +115,6 @@ export default async function CartridgeDetailPage({ params }: { params: Promise<
           </div>
         )}
       </main>
-    </div>
-  );
-}
-
-function VersionCard({ version, updateStatus, cartridgeId }: {
-  version: any;
-  updateStatus: (versionId: string, status: string) => Promise<void>;
-  cartridgeId: string;
-}) {
-  const meta = PLATFORMS.find(p => p.id === version.plateforme) || { icon: "📱", label: version.plateforme, bg: "bg-slate-50" };
-
-  return (
-    <div className="bg-white rounded-xl border shadow-sm">
-      {/* Platform header */}
-      <div className={`px-4 py-2.5 flex items-center justify-between border-b ${meta.bg}`}>
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{meta.icon}</span>
-          <span className="font-semibold text-sm">{meta.label}</span>
-          <Badge variant="outline" className="text-xs">
-            {version.format} · {version.ton}
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            {version.status}
-          </Badge>
-        </div>
-        <span className="text-xs text-slate-400">
-          {version.content_text ? `${version.content_text.length} chars` : "⚠️ Sans contenu"}
-        </span>
-      </div>
-
-      {/* Content body */}
-      <div className="p-4">
-        {version.content_text ? (
-          <div className="whitespace-pre-wrap text-sm text-slate-700 leading-relaxed">
-            {version.content_text}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-slate-400 text-sm italic">
-            En attente de génération par Hermes…
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="mt-4 pt-3 border-t flex flex-wrap gap-2">
-          <form action={async () => {
-            "use server";
-            await updateStatus(version.id, "review");
-          }}>
-            <Button type="submit" name="status" value="review" size="sm" variant="outline">🔄 Review</Button>
-          </form>
-          <form action={async () => {
-            "use server";
-            await updateStatus(version.id, "approved");
-          }}>
-            <Button type="submit" name="status" value="approved" size="sm">✅ Approuver</Button>
-          </form>
-          <form action={async () => {
-            "use server";
-            await updateStatus(version.id, "published");
-          }}>
-            <Button type="submit" name="status" value="published" size="sm">📤 Publier</Button>
-          </form>
-        </div>
-      </div>
     </div>
   );
 }
