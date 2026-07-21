@@ -1,13 +1,41 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import StatusButtons from "@/components/status-buttons";
 import { db } from "@/lib/db";
 import { cartridges, versions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 
+export const dynamicParams = true;
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
+export async function POST(request: Request) {
+  const formData = await request.formData();
+  const versionId = formData.get("versionId") as string;
+  const action = formData.get("action") as string;
+  const cartridgeId = formData.get("cartridgeId") as string;
+
+  const statusMap: Record<string, string> = {
+    review: "review",
+    approve: "approved",
+    publish: "published",
+  };
+  const status = statusMap[action] || "draft";
+
+  if (versionId && status && cartridgeId) {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    await fetch(`${baseUrl}/api/versions/${versionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  redirect(`/cartridges/${cartridgeId}`);
+}
 
 export default async function CartridgeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -74,8 +102,20 @@ export default async function CartridgeDetailPage({ params }: { params: Promise<
                   </div>
                 )}
 
-                <div className="mt-4 pt-3 border-t">
-                  <StatusButtons versionId={v.id} currentStatus={v.status} />
+                {/* Plain HTML forms — server-side POST handler */}
+                <div className="mt-4 pt-3 border-t flex flex-wrap gap-2">
+                  <form method="POST" action={`/cartridges/${id}`}>
+                    <input type="hidden" name="versionId" value={v.id} />
+                    <Button type="submit" name="action" value="review">🔄 Review</Button>
+                  </form>
+                  <form method="POST" action={`/cartridges/${id}`}>
+                    <input type="hidden" name="versionId" value={v.id} />
+                    <Button type="submit" name="action" value="approve">✅ Approuver</Button>
+                  </form>
+                  <form method="POST" action={`/cartridges/${id}`}>
+                    <input type="hidden" name="versionId" value={v.id} />
+                    <Button type="submit" name="action" value="publish">📤 Publier</Button>
+                  </form>
                 </div>
               </div>
             </div>
