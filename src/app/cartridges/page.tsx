@@ -12,9 +12,9 @@ export default function CartridgesPage() {
             <span className="text-sm text-gray-500">Guidance</span>
           </div>
           <nav className="flex gap-2">
-            <Button variant="ghost" asChild><Link href="/">Dashboard</Link></Button>
-            <Button variant="ghost" asChild><Link href="/cartridges">Cartouches</Link></Button>
-            <Button variant="ghost" asChild><Link href="/planning">Planning 45j</Link></Button>
+            <Link href="/"><Button variant="ghost">Dashboard</Button></Link>
+            <Link href="/cartridges"><Button variant="ghost">Cartouches</Button></Link>
+            <Link href="/planning"><Button variant="ghost">Planning 45j</Button></Link>
           </nav>
         </div>
       </header>
@@ -22,14 +22,14 @@ export default function CartridgesPage() {
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold">📦 Toutes les cartouches</h2>
-          <Button asChild><Link href="/cartridges/new">+ Nouvelle</Link></Button>
+          <Link href="/cartridges/new"><Button>+ Nouvelle</Button></Link>
         </div>
 
         <div className="bg-white rounded-xl border shadow-sm">
           <div className="text-center py-20 text-gray-400">
             <div className="text-5xl mb-4">📦</div>
             <p className="text-lg">Aucune cartouche pour l'instant</p>
-            <p className="text-sm mt-1">Connecte une base Neon + lance Hermes pour générer les 45 premières</p>
+            <p className="text-sm mt-1">Connecte Hermes pour générer les 45 premières</p>
           </div>
         </div>
       </main>
