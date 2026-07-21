@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { cartridges, versions } from "@/lib/db/schema";
-import { neon } from "@neondatabase/serverless";
+import { sql } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,23 +50,17 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Number(searchParams.get("limit") || "50"), 100);
 
   try {
-    const sql = neon(process.env.DATABASE_URL!);
-    let query = `SELECT * FROM cartridges WHERE 1=1`;
-    const params: any[] = [];
+    let query = db.select().from(cartridges).orderBy(cartridges.created_at).limit(limit);
 
     if (status) {
-      params.push(status);
-      query += ` AND status = $${params.length}`;
+      query = query.where(sql`status = ${status}`) as any;
     }
     if (source) {
-      params.push(source);
-      query += ` AND source = $${params.length}`;
+      query = query.where(sql`source = ${source}`) as any;
     }
-    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
-    params.push(limit);
 
-    const result = await sql.query(query, params);
-    return Response.json({ cartridges: result.rows });
+    const result = await query;
+        return Response.json({ cartridges: result });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
