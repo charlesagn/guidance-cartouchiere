@@ -1,26 +1,13 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import StatusButtons from "@/components/status-buttons";
 import { db } from "@/lib/db";
 import { cartridges, versions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
-
-const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
-async function updateStatus(formData: FormData) {
-  "use server";
-  const versionId = formData.get("versionId") as string;
-  const status = formData.get("status") as string;
-  if (!versionId || !status) return;
-  await fetch(`${API_BASE}/api/versions/${versionId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
-  });
-}
 
 export default async function CartridgeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -64,7 +51,6 @@ export default async function CartridgeDetailPage({ params }: { params: Promise<
           const meta = PLATFORMS.find(p => p.id === v.plateforme) || { icon: "📱", label: v.plateforme, bg: "bg-slate-50" };
           return (
             <div key={v.id} className="bg-white rounded-xl border shadow-sm">
-              {/* Platform header */}
               <div className={`px-4 py-2.5 flex items-center justify-between border-b ${meta.bg}`}>
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{meta.icon}</span>
@@ -77,7 +63,6 @@ export default async function CartridgeDetailPage({ params }: { params: Promise<
                 </span>
               </div>
 
-              {/* Content */}
               <div className="p-4">
                 {v.content_text ? (
                   <div className="whitespace-pre-wrap text-sm text-slate-700 leading-relaxed">
@@ -89,20 +74,8 @@ export default async function CartridgeDetailPage({ params }: { params: Promise<
                   </div>
                 )}
 
-                {/* Action buttons — 3 FORMS, one per action */}
-                <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-2">
-                  <form action={updateStatus} className="inline-block">
-                    <input type="hidden" name="versionId" value={v.id} />
-                    <Button type="submit" name="status" value="review" size="sm" variant="outline">🔄 Review</Button>
-                  </form>
-                  <form action={updateStatus} className="inline-block">
-                    <input type="hidden" name="versionId" value={v.id} />
-                    <Button type="submit" name="status" value="approved" size="sm">✅ Approuver</Button>
-                  </form>
-                  <form action={updateStatus} className="inline-block">
-                    <input type="hidden" name="versionId" value={v.id} />
-                    <Button type="submit" name="status" value="published" size="sm">📤 Publier</Button>
-                  </form>
+                <div className="mt-4 pt-3 border-t">
+                  <StatusButtons versionId={v.id} currentStatus={v.status} />
                 </div>
               </div>
             </div>
